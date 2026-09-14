@@ -132,6 +132,23 @@ guarantee. The proxy substitutes at the wire, after the host has decided what to
 send, so there is no path around it. If the data genuinely must not leave, use
 `shade run claude`, not the hook alone.
 
+### Restoration is invisible, which can look like a bug
+
+The round trip makes the filter hard to observe, and the failure mode is
+confusing. The model sees only `<EMAIL_a1b2c3>`; if it then *narrates* that —
+"I only have a placeholder" — the proxy restores the token on the way back and
+you read a sentence that names the real address while claiming it cannot be
+seen. That looks broken. It is the opposite: it is proof both directions work.
+
+The session-start note tells the model about the round trip and asks it not to
+narrate the redaction, which removes most of this. To see the machinery
+directly:
+
+```bash
+shade run --no-restore claude    # you see the placeholders the model sees
+shade log --tail 10              # `redact` = proxy active, `warn` = dry-run
+```
+
 ### It fails closed
 
 This is the opposite of the hooks, deliberately. A hook that crashes lets you

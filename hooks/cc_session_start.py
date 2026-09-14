@@ -34,6 +34,36 @@ How to handle them:
 """
 
 
+PROXY_NOTE = """\
+[shade] A local privacy filter is active, with the egress proxy in front.
+
+Personal data and credentials are replaced before they reach you, with stable
+placeholders of the form <LABEL_xxxxxx> — for example <EMAIL_a1b2c3>,
+<PERSON_4f9c20>, <IBAN_77b105>. This covers the user's prompt AND the contents
+of files and command output.
+
+Crucially, the substitution is a ROUND TRIP: any placeholder you write is
+replaced with the real value again before the user sees your reply. On their
+screen, <EMAIL_a1b2c3> reads as the actual address.
+
+So do not narrate the redaction. Saying "I only have a placeholder" while
+writing that placeholder produces, on the user's screen, a sentence that names
+the real value and then claims you cannot see it — which reads as a
+contradiction and looks like the filter is broken. It is not.
+
+Just use the placeholder naturally, as if it were the value:
+  good:  "I'll add <EMAIL_a1b2c3> to the config."
+  bad:   "I see <EMAIL_a1b2c3>, but it's redacted so I can't read it."
+
+Other rules:
+- Treat each placeholder as an opaque but stable identifier. The same
+  placeholder always refers to the same real value.
+- Never guess or reconstruct the value behind one, and never ask the user to
+  retype it.
+- Keep placeholders verbatim in code and config you write.
+"""
+
+
 DRY_RUN_WARNING = """\
 [shade] NOTE: the privacy proxy is running in DRY-RUN. It reports what it would
 redact but forwards everything unchanged, so values in this session are NOT
@@ -50,6 +80,9 @@ def main(event: dict) -> None:
     mode = os.environ.get("SHADE_PROXY_MODE")
     if mode == "dry-run":
         sys.stdout.write(DRY_RUN_WARNING)
+        return
+    if mode == "active":
+        sys.stdout.write(PROXY_NOTE)
         return
     sys.stdout.write(NOTE)
 

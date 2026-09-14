@@ -157,6 +157,54 @@ the exact harm it exists to prevent. `--fail-open` overrides that.
 
 ### Hooks and proxy coordinate
 
+Three modes, three answers — `shade doctor` and `shade log` show which is live.
+
+| Mode | Prompt hook | Other surfaces | `deny_paths` | Protected? |
+|---|---|---|---|---|
+| no proxy | `block` | as configured | enforced | yes, by hooks |
+| `shade run` | `off` | as configured | enforced | yes, by the proxy |
+| `shade run --dry-run` | `warn` | `warn` | enforced | **no — observation only** |
+
+With the proxy **actively redacting**, the prompt hook stands down: the proxy
+substitutes into the prompt, which no hook can do, and a hook refusal would land
+first and turn a clean substitution into a dead end.
+
+**Dry run is an observation mode, not a protection mode.** Its whole purpose is
+to watch real traffic and report what *would* be redacted — so a hook that
+blocks defeats it, because the prompt never reaches the layer you are
+evaluating. Policies relax to `warn`: traffic flows, and both you and the model
+are told what was found and that nothing was removed. `deny_paths` is the one
+guard that stays on, because it prevents an irreversible read that the proxy has
+no way to undo.
+
+So dry run means your data is genuinely unprotected. Use it to build confidence
+in the proxy on work you would not mind sending anyway, then drop the flag.
+
+### Restoration is invisible, which can look like a bug
+
+The round trip makes the filter hard to observe, and the failure mode is
+confusing. The model sees only `<EMAIL_a1b2c3>`; if it then *narrates* that —
+"I only have a placeholder" — the proxy restores the token on the way back and
+you read a sentence that names the real address while claiming it cannot be
+seen. That looks broken. It is the opposite: it is proof both directions work.
+
+The session-start note tells the model about the round trip and asks it not to
+narrate the redaction, which removes most of this. To see the machinery
+directly:
+
+```bash
+shade run --no-restore claude    # you see the placeholders the model sees
+shade log --tail 10              # `redact` = proxy active, `warn` = dry-run
+```
+
+### It fails closed
+
+This is the opposite of the hooks, deliberately. A hook that crashes lets you
+keep working; a proxy that cannot redact must not forward, because forwarding is
+the exact harm it exists to prevent. `--fail-open` overrides that.
+
+### Hooks and proxy coordinate
+
 With the proxy **actively redacting**, the prompt hook stands down. Otherwise it
 would refuse your prompt *before* the proxy ever saw it, and you would get a
 refusal where you could have had a clean substitution. Everything else stays on —
@@ -183,8 +231,9 @@ it is not.
   `ANTHROPIC_BASE_URL`, which Codex does not read. Point it at `shade proxy`
   with a `[model_providers.shade] base_url` entry in `config.toml`.
 
-Use `--dry-run` for a few sessions first. It reports what it would have redacted
-without touching traffic.
+Use `--dry-run` for a few sessions first to see what it catches — remembering
+that dry run protects nothing, so run it on work you would not mind sending
+unfiltered anyway.
 
 ---
 
@@ -539,7 +588,7 @@ was never at risk.
 python3 -m unittest discover -s tests -v
 ```
 
-71 tests, no dependencies. The check-digit validators are tested against
+72 tests, no dependencies. The check-digit validators are tested against
 published worked examples rather than against themselves, and two tests pin
 precision regressions found by running the scanner over real repositories: a
 credit-card pattern that joined adjacent SQL timestamps into one candidate, and

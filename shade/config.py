@@ -152,26 +152,41 @@ def _read_json(path: Path) -> dict:
 
 
 def _apply_proxy_coordination(config: dict) -> dict:
-    """When the egress proxy is in front, stand the prompt hook down.
+    """Reconcile the hook layer with whatever the proxy is doing.
 
-    The two layers overlap, and the proxy is strictly better at this one job:
-    it can substitute placeholders into the prompt, which no hook can do. Left
-    enabled, the hook would refuse the prompt *before* the proxy ever saw it —
-    so you would get a refusal where you could have had a clean substitution.
+    Three modes, three answers:
 
-    Everything else stays: `deny_paths` still refuses to open a credentials
-    file, and blocking a secret outright is still stronger than redacting it.
-    An explicit SHADE_PROMPT_POLICY still wins, since it is applied after this.
+    **No proxy** — hooks are the only defence. Leave them exactly as configured.
+
+    **Active proxy** — the prompt hook stands down. The proxy substitutes into
+    the prompt, which no hook can do, and a hook refusal would land *first* and
+    turn a clean substitution into a dead end.
+
+    **Dry run** — the point of dry run is to watch real traffic and see what
+    *would* be redacted. A hook that blocks makes that impossible: the prompt
+    never reaches the proxy, so you learn nothing about the layer you are
+    evaluating. But switching the hooks off entirely leaves you unprotected and
+    silent, which is the bug this used to have.
+
+    So dry run relaxes the policy surfaces to ``warn``: traffic flows, and both
+    you and the model are told what was found and that nothing was removed.
+    ``deny_paths`` stays enforced — it prevents an irreversible read, the proxy
+    has no equivalent, and allowing it would teach you nothing about the proxy
+    that ``warn`` does not already show.
+
+    Dry run is an *observation* mode, not a protection mode. Do not use it for
+    work that actually needs protecting.
     """
-    # Only an *actively redacting* proxy earns the hook standing down. In
-    # dry-run the proxy forwards unchanged, so switching the hook off there
-    # would leave the prompt surface completely unguarded -- strictly worse
-    # than running no proxy at all.
-    if os.environ.get("SHADE_PROXY_MODE") == "dry-run":
+    mode = os.environ.get("SHADE_PROXY_MODE")
+    if mode == "dry-run":
+        policies = config.setdefault("policies", {})
+        for surface in (PROMPT, EGRESS, SHELL, LOCAL_WRITE, LOCAL_READ, OUTPUT):
+            policies[surface] = {severity: WARN for severity in SEVERITIES}
         return config
-    if not _as_bool(os.environ.get("SHADE_PROXY", "")):
-        return config
-    config.setdefault("policies", {})[PROMPT] = {severity: OFF for severity in SEVERITIES}
+    if mode == "active" or _as_bool(os.environ.get("SHADE_PROXY", "")):
+        config.setdefault("policies", {})[PROMPT] = {
+            severity: OFF for severity in SEVERITIES
+        }
     return config
 
 

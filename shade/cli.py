@@ -490,7 +490,11 @@ def cmd_proxy(args) -> int:
     host, port = server.server_address
     print(f"shade proxy listening on http://{host}:{port}  ->  {settings.upstream}")
     if settings.dry_run:
-        print("  DRY RUN — traffic is forwarded unchanged; findings are only reported")
+        print("  DRY RUN — NOTHING IS PROTECTED IN THIS SESSION.")
+        print("    traffic is forwarded unchanged, and hook policies are relaxed to")
+        print("    `warn` so real prompts reach the proxy and can be reported on.")
+        print("    deny_paths still blocks credential-file reads.")
+        print("    Do not use dry run for work that actually needs protecting.")
     else:
         print(f"  redacting requests; {'restoring' if settings.restore else 'NOT restoring'} responses")
         print(f"  on redaction failure: {'forward anyway (--fail-open)' if settings.fail_open else 'refuse to send'}")
@@ -546,8 +550,15 @@ def cmd_run(args) -> int:
             file=sys.stderr,
         )
 
-    mode = "DRY RUN" if settings.dry_run else "active"
-    print(f"shade: proxy {mode} on port {port}; starting {args.command[0]}", file=sys.stderr)
+    if settings.dry_run:
+        print(
+            f"shade: proxy DRY RUN on port {port} — NOTHING IS PROTECTED this session.\n"
+            "       Hook policies are relaxed to `warn` so real traffic reaches the proxy;\n"
+            "       deny_paths still blocks credential-file reads. Observation only.",
+            file=sys.stderr,
+        )
+    else:
+        print(f"shade: proxy active on port {port}; starting {args.command[0]}", file=sys.stderr)
 
     try:
         completed = subprocess.run(args.command, env=environment)

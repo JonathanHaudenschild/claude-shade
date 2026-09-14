@@ -281,10 +281,31 @@ class TestProxyHookCoordination(unittest.TestCase):
         os.environ["SHADE_PROXY_MODE"] = "active"
         self.assertEqual(self.prompt_policy()["pii"], config.OFF)
 
-    def test_dry_run_keeps_the_hook_armed(self):
+    def test_dry_run_relaxes_to_warn_not_off(self):
+        """Dry run must observe, not block and not go silent.
+
+        Blocking makes dry run useless -- the prompt never reaches the proxy,
+        so you learn nothing about the layer you are evaluating. Going silent
+        is the bug this replaced: protection removed with no warning. `warn`
+        lets traffic through and says so.
+        """
         os.environ["SHADE_PROXY"] = "1"
         os.environ["SHADE_PROXY_MODE"] = "dry-run"
-        self.assertEqual(self.prompt_policy()["pii"], config.BLOCK)
+        policies = config.load(self._tmp.name)["policies"]
+        self.assertEqual(policies[config.PROMPT]["pii"], config.WARN)
+        self.assertEqual(policies[config.EGRESS]["secret"], config.WARN)
+        self.assertNotIn(config.OFF, policies[config.PROMPT].values())
+
+    def test_dry_run_still_enforces_deny_paths(self):
+        """The one guard dry run keeps: an irreversible read the proxy cannot undo."""
+        os.environ["SHADE_PROXY"] = "1"
+        os.environ["SHADE_PROXY_MODE"] = "dry-run"
+        engine = Engine(config.load(self._tmp.name))
+        from shade import policy as policy_module
+        decision = policy_module.evaluate_tool_input(
+            engine, "Read", {"file_path": "/tmp/x/.env"}
+        )
+        self.assertTrue(decision.blocked)
 
 
 class TestNoFalseAssurance(unittest.TestCase):

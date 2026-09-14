@@ -16,7 +16,7 @@ Everything runs on your machine, and the key used to generate placeholders never
 leaves it.
 
 ```
-you type:   Bitte mail an erika.mustermann@example.de, IBAN DE89 3704 0044 0532 0130 00
+you type:   Bitte mail an erika.mustermann@example.com, IBAN DE89 3704 0044 0532 0130 00
 model sees: Bitte mail an <EMAIL_97029f>, IBAN <IBAN_924945>
 ```
 
@@ -335,7 +335,7 @@ prose and turn your transcript into noise.
 documentation IP, a public support address:
 
 ```bash
-shade allow "support@example.de" "DE89370400440532013000"
+shade allow "support@example.com" "DE89370400440532013000"
 ```
 
 Allowlisted values are sent in full, every time, with no further checks — so put
@@ -345,7 +345,7 @@ test data there, never a real key.
 still personal data, but you may prefer them legible:
 
 ```json
-{ "allow_email_domains": ["example.de"] }
+{ "allow_email_domains": ["example.com"] }
 ```
 
 **Check what a policy actually does** before committing to it:

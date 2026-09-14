@@ -1,0 +1,16 @@
+{
+  "name": "shade",
+  "owner": {
+    "name": "Technologiestiftung Berlin"
+  },
+  "metadata": {
+    "description": "Local privacy filter for coding agents"
+  },
+  "plugins": [
+    {
+      "name": "shade",
+      "source": "./",
+      "description": "Redacts personal data, credentials and API tokens locally before they are sent to the model."
+    }
+  ]
+}

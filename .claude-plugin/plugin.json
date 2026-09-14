@@ -1,0 +1,11 @@
+{
+  "name": "shade",
+  "displayName": "shade — privacy filter",
+  "version": "0.3.0",
+  "description": "Redacts personal data, credentials and API tokens locally before they are sent to the model. Pure standard-library Python, no network calls.",
+  "author": {
+    "name": "Technologiestiftung Berlin"
+  },
+  "license": "MIT",
+  "keywords": ["privacy", "pii", "gdpr", "dsgvo", "redaction", "secrets", "security"]
+}

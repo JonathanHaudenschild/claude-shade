@@ -180,43 +180,6 @@ no way to undo.
 So dry run means your data is genuinely unprotected. Use it to build confidence
 in the proxy on work you would not mind sending anyway, then drop the flag.
 
-### Restoration is invisible, which can look like a bug
-
-The round trip makes the filter hard to observe, and the failure mode is
-confusing. The model sees only `<EMAIL_a1b2c3>`; if it then *narrates* that —
-"I only have a placeholder" — the proxy restores the token on the way back and
-you read a sentence that names the real address while claiming it cannot be
-seen. That looks broken. It is the opposite: it is proof both directions work.
-
-The session-start note tells the model about the round trip and asks it not to
-narrate the redaction, which removes most of this. To see the machinery
-directly:
-
-```bash
-shade run --no-restore claude    # you see the placeholders the model sees
-shade log --tail 10              # `redact` = proxy active, `warn` = dry-run
-```
-
-### It fails closed
-
-This is the opposite of the hooks, deliberately. A hook that crashes lets you
-keep working; a proxy that cannot redact must not forward, because forwarding is
-the exact harm it exists to prevent. `--fail-open` overrides that.
-
-### Hooks and proxy coordinate
-
-With the proxy **actively redacting**, the prompt hook stands down. Otherwise it
-would refuse your prompt *before* the proxy ever saw it, and you would get a
-refusal where you could have had a clean substitution. Everything else stays on —
-`deny_paths` still refuses to open a credentials file, which the proxy cannot do
-because by then the read has already happened.
-
-Under `--dry-run` the hook stays fully armed. The proxy forwards unchanged in
-that mode, so standing the hook down would leave the prompt surface unguarded —
-strictly worse than running no proxy at all. The session-start note also tells
-the model it is in dry-run, so it cannot claim your data is being filtered when
-it is not.
-
 ### What it costs
 
 * **Not a stable contract.** Hooks are a documented API. The request body shape

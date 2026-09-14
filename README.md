@@ -116,11 +116,17 @@ the exact harm it exists to prevent. `--fail-open` overrides that.
 
 ### Hooks and proxy coordinate
 
-With the proxy active (`SHADE_PROXY=1`, which `shade run` sets), the prompt hook
-stands down. Otherwise it would refuse your prompt *before* the proxy ever saw
-it, and you would get a refusal where you could have had a clean substitution.
-Everything else stays on — `deny_paths` still refuses to open a credentials
-file, which the proxy cannot do because by then the read has already happened.
+With the proxy **actively redacting**, the prompt hook stands down. Otherwise it
+would refuse your prompt *before* the proxy ever saw it, and you would get a
+refusal where you could have had a clean substitution. Everything else stays on —
+`deny_paths` still refuses to open a credentials file, which the proxy cannot do
+because by then the read has already happened.
+
+Under `--dry-run` the hook stays fully armed. The proxy forwards unchanged in
+that mode, so standing the hook down would leave the prompt surface unguarded —
+strictly worse than running no proxy at all. The session-start note also tells
+the model it is in dry-run, so it cannot claim your data is being filtered when
+it is not.
 
 ### What it costs
 

@@ -8,6 +8,7 @@ the redaction in one turn.
 
 from __future__ import annotations
 
+import os
 import sys
 
 from _bootstrap import engine_for, run
@@ -33,9 +34,22 @@ How to handle them:
 """
 
 
+DRY_RUN_WARNING = """\
+[shade] NOTE: the privacy proxy is running in DRY-RUN. It reports what it would
+redact but forwards everything unchanged, so values in this session are NOT
+redacted. Do not tell the user their data is being filtered. The prompt hook
+remains active and will still refuse a prompt containing credentials or personal
+data.
+"""
+
+
 def main(event: dict) -> None:
     engine = engine_for(event)
     if not engine.config.get("enabled", True):
+        return
+    mode = os.environ.get("SHADE_PROXY_MODE")
+    if mode == "dry-run":
+        sys.stdout.write(DRY_RUN_WARNING)
         return
     sys.stdout.write(NOTE)
 

@@ -398,20 +398,21 @@ That is a deliberate trade and you should know which way it points. Set
 
 ---
 
-## 9. Notes for Users
+## 10. Notes for users
 
-This tool helps with the privacy rules on AI use; it does not replace them.
+This tool helps with whatever privacy rules apply to your AI use; it does not
+replace them.
 
-It reduces accidental exposure of the categories the guidance names —
-credentials and tokens, personal data, financial data with a personal
-reference, Art. 9 special categories. It cannot judge whether a strategy paper
-is confidential, whether a procurement is still running, or whether a research
-result has been published. Those remain human decisions, and *"if in doubt, do
-not enter it"* still stands.
+It reduces accidental exposure of the obvious categories — credentials and
+tokens, personal data, financial data with a personal reference, GDPR Art. 9
+special categories. It cannot judge whether a strategy paper is confidential,
+whether a procurement is still running, or whether a research result has been
+published. Those remain human decisions, and *"if in doubt, do not enter it"*
+still stands.
 
 A caught secret is still a secret that existed in a prompt. If a real credential
-is blocked, rotate it - a block means it did
-not reach the model, not that it was never at risk.
+is blocked, rotate it — a block means it did not reach the model, not that it
+was never at risk.
 
 ---
 

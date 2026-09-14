@@ -33,7 +33,7 @@ from a documentation page. The honest picture:
 
 | Channel | Hooks alone | With `shade run` (proxy) |
 |---|---|---|
-| What you type | **blocked**, clean text handed back to paste | **substituted** transparently |
+| What you type | turn **blocked**, clean text handed back — but see §2, a block is not proof of non-transmission | **substituted** transparently |
 | Tool input (WebFetch, MCP, Bash, …) | rewritten or refused | rewritten or refused |
 | Reading a credentials file | refused by path before it opens | refused by path before it opens |
 | File contents / command output | **detected, not removed** | **substituted** |
@@ -539,7 +539,7 @@ was never at risk.
 python3 -m unittest discover -s tests -v
 ```
 
-41 tests, no dependencies. The check-digit validators are tested against
+71 tests, no dependencies. The check-digit validators are tested against
 published worked examples rather than against themselves, and two tests pin
 precision regressions found by running the scanner over real repositories: a
 credit-card pattern that joined adjacent SQL timestamps into one candidate, and

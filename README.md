@@ -108,6 +108,30 @@ Redaction on the way out, restoration on the way back. The model reasons about
 caching is unaffected — and a request with nothing sensitive in it is forwarded
 byte-identical, not re-serialised.
 
+### Why the proxy, and not just `block`
+
+A `UserPromptSubmit` block stops the *turn*. It does **not** reliably stop the
+*transmission* — that is the host's decision, not the hook's, and the hook has no
+way to observe it.
+
+Measured on Claude Code 2.1.270 with a pass-through proxy recording outbound
+traffic. Prompt hook blocking, headless mode:
+
+```
+$ claude -p "probe-leak-4b7c@example.com"
+  shade blocked this prompt: it contains EMAIL.
+
+  outbound: 1 request  /v1/messages  4119 bytes  needle_present: TRUE
+```
+
+The blocked value went to the API anyway. (Interactive mode is unverified — a
+pty harness could not drive the TUI reliably — so treat it as unknown, not safe.)
+
+This is why `block` is documented as a speed bump and the proxy as the
+guarantee. The proxy substitutes at the wire, after the host has decided what to
+send, so there is no path around it. If the data genuinely must not leave, use
+`shade run claude`, not the hook alone.
+
 ### It fails closed
 
 This is the opposite of the hooks, deliberately. A hook that crashes lets you

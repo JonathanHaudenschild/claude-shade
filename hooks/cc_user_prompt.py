@@ -34,12 +34,17 @@ def main(event: dict) -> None:
     engine.log(EVENT, config.PROMPT, decision.action, decision.findings)
 
     if decision.action == config.BLOCK:
-        message = f"shade blocked this prompt: it contains {decision.reason}.\nNothing was sent."
+        message = (
+            f"shade blocked this prompt: it contains {decision.reason}.\n"
+            "The turn was stopped — but a block is NOT proof the text was never "
+            "transmitted. In headless (-p) mode Claude Code was observed sending the "
+            "prompt upstream anyway. For a hard guarantee, run `shade run claude`: the "
+            "proxy substitutes at the wire, so there is no path around it."
+        )
         if decision.rewritten:
             message += (
                 "\n\nA hook cannot rewrite a prompt in place, only refuse it. "
-                "Here is the same message with the sensitive parts replaced — "
-                "send this instead:\n\n"
+                "Send this instead:\n\n"
                 f"{decision.updated}\n"
             )
         else:

@@ -31,13 +31,17 @@ the host honoured its output** — an unknown field is ignored in silence. So th
 capabilities below were verified against the host binaries themselves, not taken
 from a documentation page. The honest picture:
 
-| Channel | What shade does | Guarantee |
+| Channel | Hooks alone | With `shade run` (proxy) |
 |---|---|---|
-| What you type | **blocked**, with the clean text handed back to paste | prevented |
-| Tool input (WebFetch, MCP, Bash, …) | rewritten (`updatedInput`) or refused | prevented |
-| Reading a credentials file | refused by path before it opens | prevented |
-| File contents / command output | **detected, not removed** | warning only |
-| What the model writes back | not touched | out of scope |
+| What you type | **blocked**, clean text handed back to paste | **substituted** transparently |
+| Tool input (WebFetch, MCP, Bash, …) | rewritten or refused | rewritten or refused |
+| Reading a credentials file | refused by path before it opens | refused by path before it opens |
+| File contents / command output | **detected, not removed** | **substituted** |
+| What the model writes back | not touched | restored to real values locally |
+
+Hooks are the always-on baseline: they work in Claude Code and Codex, cannot
+take your tooling down, and can refuse a read before the file is ever opened.
+The proxy is opt-in strict mode — see section 2.
 
 **Claude Code cannot rewrite a submitted prompt.** Its own embedded hook
 reference is explicit — `updatedInput` is "PreToolUse only" — and the 2.1.x
@@ -73,7 +77,71 @@ Two more things it deliberately does not do:
 
 ---
 
-## 2. Install
+## 2. The proxy — closing the tool-output hole
+
+Hooks can only rewrite tool *input*. The proxy sits between the agent and the
+API, so it sees the whole request on its way out — your prompt, the system
+prompt, and every `tool_result` block, which is where file contents and command
+output live. That is the row the table above marks *warning only*, and the proxy
+is the only thing that can close it.
+
+```bash
+shade run claude              # starts the proxy, points Claude Code at it, cleans up
+shade run --dry-run claude    # report what it would redact, change nothing
+shade proxy                   # standalone, on a port you pick
+```
+
+Verified end to end against the live API. Asking the model to echo back an
+address in the prompt:
+
+```
+$ shade run --no-restore claude -p "What email address appears here? ... erika.mustermann@example.com"
+<EMAIL_127bf4>                        # ← what the model actually received
+
+$ shade run claude -p            "... same prompt ..."
+erika.mustermann@example.com          # ← what you see, restored locally
+```
+
+Redaction on the way out, restoration on the way back. The model reasons about
+`<EMAIL_127bf4>`; your terminal shows the real address. Because placeholders are
+`HMAC(local key, label + value)` they are byte-stable across turns, so prompt
+caching is unaffected — and a request with nothing sensitive in it is forwarded
+byte-identical, not re-serialised.
+
+### It fails closed
+
+This is the opposite of the hooks, deliberately. A hook that crashes lets you
+keep working; a proxy that cannot redact must not forward, because forwarding is
+the exact harm it exists to prevent. `--fail-open` overrides that.
+
+### Hooks and proxy coordinate
+
+With the proxy active (`SHADE_PROXY=1`, which `shade run` sets), the prompt hook
+stands down. Otherwise it would refuse your prompt *before* the proxy ever saw
+it, and you would get a refusal where you could have had a clean substitution.
+Everything else stays on — `deny_paths` still refuses to open a credentials
+file, which the proxy cannot do because by then the read has already happened.
+
+### What it costs
+
+* **Not a stable contract.** Hooks are a documented API. The request body shape
+  is internal and can change without notice; if it does, the filter silently
+  stops matching. Hooks won't.
+* **A new trust boundary.** Every byte of your work passes through it in
+  plaintext, and it holds your auth header.
+* **Single point of failure.** Proxy down, agent down.
+* **Verified minor feature loss**: a custom `ANTHROPIC_BASE_URL` disables the
+  managed/enterprise settings fetch and a ToolSearch optimisation. Nothing core.
+* **Codex is not wired up automatically.** `shade run` sets
+  `ANTHROPIC_BASE_URL`, which Codex does not read. Point it at `shade proxy`
+  with a `[model_providers.shade] base_url` entry in `config.toml`.
+
+Use `--dry-run` for a few sessions first. It reports what it would have redacted
+without touching traffic.
+
+---
+
+## 3. Install
 
 ```bash
 git clone <this repo> claude-shade
@@ -116,7 +184,7 @@ shade scan --file notes.md
 
 ---
 
-## 3. Configuration
+## 4. Configuration
 
 Layers, later wins:
 
@@ -203,7 +271,7 @@ shade check-path .env .env.example src/app.py
 
 ---
 
-## 4. What it detects
+## 5. What it detects
 
 **Credentials** — PEM/OpenSSH/PGP private keys, AWS access key IDs and secret
 keys, GitHub (classic + fine-grained) and GitLab tokens, Anthropic, OpenAI,
@@ -242,7 +310,7 @@ Off by default because they are noisy: `bic`, `ipv6`, `de_postal_address`,
 
 ---
 
-## 5. Placeholders and the vault
+## 6. Placeholders and the vault
 
 A redacted value becomes `<LABEL_xxxxxx>`, where the suffix is
 `HMAC-SHA256(local key, label + value)` truncated to six hex characters.
@@ -276,7 +344,7 @@ never raw values. `shade log --tail 20`.
 
 ---
 
-## 6. Commands
+## 7. Commands
 
 In Claude Code:
 
@@ -303,6 +371,8 @@ shade name NAME...   [--remove]
 shade allow TERM...  [--remove]
 shade check-path PATH...
 shade classify TOOL...
+shade run <cmd>                     run an agent through the proxy
+shade proxy [--port N] [--dry-run]  standalone proxy
 shade doctor
 shade vault [--clear]
 shade log [--tail N]
@@ -317,7 +387,7 @@ cat draft.md | shade redact > draft.clean.md
 
 ---
 
-## 7. Tuning it
+## 8. Tuning it
 
 Expect to spend ten minutes on this once, then never again.
 
@@ -357,7 +427,7 @@ echo '{"hook_event_name":"PreToolUse","tool_name":"WebFetch","tool_input":{"prom
 
 ---
 
-## 8. Troubleshooting
+## 9. Troubleshooting
 
 **`Status: ✘ failed to load — Duplicate hooks file detected`.** `hooks/hooks.json`
 and `commands/` are discovered automatically; naming them in `plugin.json` makes
@@ -387,7 +457,7 @@ claude plugin update shade@shade      # then restart the session
 
 ---
 
-## 9. Failure behaviour
+## 10. Failure behaviour
 
 Hooks **fail open**. If a hook crashes, times out, or receives something it does
 not understand, it exits 0 and the session continues unfiltered. The alternative
@@ -398,7 +468,7 @@ That is a deliberate trade and you should know which way it points. Set
 
 ---
 
-## 10. Notes for users
+## 11. Notes for users
 
 This tool helps with whatever privacy rules apply to your AI use; it does not
 replace them.
@@ -416,7 +486,7 @@ was never at risk.
 
 ---
 
-## 11. Development
+## 12. Development
 
 ```bash
 python3 -m unittest discover -s tests -v
@@ -450,3 +520,9 @@ MIT.
 
 * [**codex-shade**](https://github.com/JonathanHaudenschild/codex-shade) — the
   same engine with Codex CLI hooks instead of a Claude Code plugin.
+* [**og-local**](https://github.com/outgate-ai/og-local) — prior art for the
+  proxy approach, and the reason `shade run` looks the way it does. It uses an
+  ONNX model (`openai/privacy-filter`) rather than regexes, so it finds
+  unstructured names that shade needs a list for — at the cost of an ~840 MB
+  download and probabilistic output. BSL 1.1 licensed. Worth a look if you want
+  ML detection more than determinism.
